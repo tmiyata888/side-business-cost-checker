@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>副業固定費診断アプリ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    body { font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState } = React;
+
+    function App() {
+      const [initialCost, setInitialCost] = useState('');
+      const [rent, setRent] = useState('');
+      const [labor, setLabor] = useState('');
+      const [subscription, setSubscription] = useState('');
+      const [vehicle, setVehicle] = useState('');
+      const [advertising, setAdvertising] = useState('');
+      const [other, setOther] = useState('');
+      const [unitPrice, setUnitPrice] = useState('');
+      const [profitMargin, setProfitMargin] = useState('');
+      const [targetProfit, setTargetProfit] = useState('');
+      const [result, setResult] = useState(null);
+
+      const num = (v) => Number(v) || 0;
+
+      const calculate = () => {
+        const totalFixed = num(rent) + num(labor) + num(subscription) + num(vehicle) + num(advertising) + num(other);
+        const margin = num(profitMargin) / 100;
+        const price = num(unitPrice);
+        const target = num(targetProfit);
+        const initial = num(initialCost);
+
+        if (margin <= 0 || price <= 0) {
+          alert('客単価と粗利率は0より大きい値を入力してください');
+          return;
+        }
+
+        const breakEvenSales = totalFixed / margin;
+        const breakEvenUnits = Math.ceil(breakEvenSales / price);
+        const targetSales = (totalFixed + target) / margin;
+        const targetUnits = Math.ceil(targetSales / price);
+        const paybackMonths = initial > 0 ? Math.ceil(initial / (targetSales * margin - totalFixed)) : 0;
+
+        let riskLevel, riskColor, riskBg;
+        if (breakEvenUnits <= 20 && totalFixed <= 100000) {
+          riskLevel = '低リスク';
+          riskColor = 'text-green-700';
+          riskBg = 'bg-green-50 border-green-200';
+        } else if (breakEvenUnits <= 50 && totalFixed <= 300000) {
+          riskLevel = '注意';
+          riskColor = 'text-yellow-700';
+          riskBg = 'bg-yellow-50 border-yellow-200';
+        } else {
+          riskLevel = '高リスク';
+          riskColor = 'text-red-700';
+          riskBg = 'bg-red-50 border-red-200';
+        }
+
+        const advice = [];
+        if (totalFixed > 200000) advice.push('固定費が高めです。サブスクや広告費の見直しを検討しましょう。');
+        if (margin < 0.4) advice.push('粗利率が低いです。仕入れ先の見直しや付加価値の向上を考えましょう。');
+        if (breakEvenUnits > 30) advice.push('損益分岐の販売数が多いです。客単価を上げるか、固定費を減らしましょう。');
+        if (initial > totalFixed * 6) advice.push('初期費用が高めです。リースやレンタルも検討してみましょう。');
+        if (advice.length === 0) advice.push('バランスの取れた計画です。まずは小さく始めて検証しましょう！');
+
+        setResult({
+          totalFixed,
+          breakEvenSales,
+          breakEvenUnits,
+          targetSales,
+          targetUnits,
+          paybackMonths,
+          riskLevel,
+          riskColor,
+          riskBg,
+          advice,
+        });
+      };
+
+      const formatYen = (n) => '¥' + Math.round(n).toLocaleString();
+
+      const InputField = ({ label, value, onChange, placeholder, suffix }) => (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              placeholder={placeholder}
+              className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none"
+            />
+            {suffix && <span className="text-gray-500 text-sm whitespace-nowrap">{suffix}</span>}
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="max-w-lg mx-auto px-4 py-8">
+          <header className="text-center mb-8">
+            <h1 className="text-2xl font-bold text-gray-800 mb-2">副業固定費診断</h1>
+            <p className="text-gray-500 text-sm">毎月の固定費から、何件売れば黒字になるかがわかります</p>
+          </header>
+
+          <section className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <span className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">1</span>
+              初期費用
+            </h2>
+            <InputField label="開業や設備にかかる費用" value={initialCost} onChange={setInitialCost} placeholder="例: 500000" suffix="円" />
+          </section>
+
+          <section className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <span className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">2</span>
+              毎月の固定費
+            </h2>
+            <InputField label="家賃（事務所・作業場など）" value={rent} onChange={setRent} placeholder="例: 50000" suffix="円/月" />
+            <InputField label="人件費（外注・パート代など）" value={labor} onChange={setLabor} placeholder="例: 0" suffix="円/月" />
+            <InputField label="サブスク（ツール・ソフト代）" value={subscription} onChange={setSubscription} placeholder="例: 5000" suffix="円/月" />
+            <InputField label="車両費（ガソリン・駐車場など）" value={vehicle} onChange={setVehicle} placeholder="例: 10000" suffix="円/月" />
+            <InputField label="広告費（SNS広告・チラシなど）" value={advertising} onChange={setAdvertising} placeholder="例: 10000" suffix="円/月" />
+            <InputField label="その他" value={other} onChange={setOther} placeholder="例: 5000" suffix="円/月" />
+          </section>
+
+          <section className="bg-white rounded-xl shadow-sm border p-6 mb-6">
+            <h2 className="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
+              <span className="w-7 h-7 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-bold">3</span>
+              売上の情報
+            </h2>
+            <InputField label="客単価（1件あたりの売上）" value={unitPrice} onChange={setUnitPrice} placeholder="例: 5000" suffix="円" />
+            <InputField label="粗利率（売上から原価を引いた割合）" value={profitMargin} onChange={setProfitMargin} placeholder="例: 60" suffix="%" />
+            <InputField label="月間目標利益（手元に残したい金額）" value={targetProfit} onChange={setTargetProfit} placeholder="例: 100000" suffix="円/月" />
+          </section>
+
+          <button
+            onClick={calculate}
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-bold rounded-xl shadow-md transition-colors"
+          >
+            診断する
+          </button>
+
+          {result && (
+            <div className="mt-8 space-y-4">
+              <div className={`rounded-xl border-2 p-5 ${result.riskBg}`}>
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-1">リスク判定</p>
+                  <p className={`text-3xl font-bold ${result.riskColor}`}>{result.riskLevel}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-white rounded-xl border p-4 text-center">
+                  <p className="text-xs text-gray-500 mb-1">損益分岐点売上</p>
+                  <p className="text-xl font-bold text-gray-800">{formatYen(result.breakEvenSales)}</p>
+                  <p className="text-xs text-gray-400">/ 月</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4 text-center">
+                  <p className="text-xs text-gray-500 mb-1">必要販売数</p>
+                  <p className="text-xl font-bold text-gray-800">{result.breakEvenUnits}<span className="text-sm">件</span></p>
+                  <p className="text-xs text-gray-400">/ 月</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4 text-center">
+                  <p className="text-xs text-gray-500 mb-1">目標達成に必要な売上</p>
+                  <p className="text-xl font-bold text-gray-800">{formatYen(result.targetSales)}</p>
+                  <p className="text-xs text-gray-400">/ 月</p>
+                </div>
+                <div className="bg-white rounded-xl border p-4 text-center">
+                  <p className="text-xs text-gray-500 mb-1">目標達成に必要な件数</p>
+                  <p className="text-xl font-bold text-gray-800">{result.targetUnits}<span className="text-sm">件</span></p>
+                  <p className="text-xs text-gray-400">/ 月</p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl border p-4 text-center">
+                <p className="text-xs text-gray-500 mb-1">毎月の固定費合計</p>
+                <p className="text-xl font-bold text-gray-800">{formatYen(result.totalFixed)}</p>
+              </div>
+
+              {result.paybackMonths > 0 && (
+                <div className="bg-white rounded-xl border p-4 text-center">
+                  <p className="text-xs text-gray-500 mb-1">初期費用の回収期間（目安）</p>
+                  <p className="text-xl font-bold text-gray-800">約 {result.paybackMonths}<span className="text-sm">ヶ月</span></p>
+                </div>
+              )}
+
+              <div className="bg-blue-50 rounded-xl border border-blue-200 p-5">
+                <h3 className="font-bold text-blue-800 mb-3">改善アドバイス</h3>
+                <ul className="space-y-2">
+                  {result.advice.map((a, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-blue-900">
+                      <span className="mt-0.5">💡</span>
+                      <span>{a}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <footer className="text-center text-xs text-gray-400 mt-10 pb-8">
+            ※ この診断は簡易的な目安です。実際の事業計画では税金や変動費も考慮してください。
+          </footer>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
