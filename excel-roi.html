@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Excel作業の自動化コスト診断｜その手作業、年間いくら消えているか</title>
+<meta name="description" content="毎月繰り返しているExcelの手作業が、年間いくらの人件費になっているかを計算します。自動化した場合の回収期間と3年間の収支まで、その場で判定。入力は5項目、30秒で終わります。" />
+<meta name="robots" content="index, follow" />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Excel作業の自動化コスト診断" />
+<meta property="og:description" content="毎月の手作業が年間いくらの人件費になっているか。自動化した場合の回収期間まで30秒で計算します。" />
+<style>
+  :root {
+    --bg: #f9fafb;
+    --card: #ffffff;
+    --line: #e5e7eb;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --faint: #9ca3af;
+    --brand: #1d4ed8;
+    --brand-soft: #eff6ff;
+    --good: #15803d;
+    --good-bg: #f0fdf4;
+    --good-line: #bbf7d0;
+    --warn: #a16207;
+    --warn-bg: #fefce8;
+    --warn-line: #fde68a;
+    --bad: #b91c1c;
+    --bad-bg: #fef2f2;
+    --bad-line: #fecaca;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Noto Sans JP', system-ui, sans-serif;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 34rem; margin: 0 auto; padding: 2rem 1rem 4rem; }
+
+  header { text-align: center; margin-bottom: 2rem; }
+  h1 { font-size: 1.5rem; line-height: 1.45; margin: 0 0 .75rem; }
+  header p { color: var(--muted); font-size: .875rem; margin: 0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.0625rem;
+    margin: 0 0 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .step {
+    width: 1.75rem; height: 1.75rem; flex: none;
+    background: var(--brand-soft); color: var(--brand);
+    border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .8125rem; font-weight: 700;
+  }
+
+  .field { margin-bottom: 1.125rem; }
+  .field:last-child { margin-bottom: 0; }
+  label { display: block; font-size: .875rem; font-weight: 600; margin-bottom: .35rem; }
+  .hint { display: block; font-size: .75rem; color: var(--faint); font-weight: 400; margin-top: .15rem; }
+  .row { display: flex; align-items: center; gap: .5rem; }
+  input[type="number"] {
+    width: 100%;
+    padding: .7rem .9rem;
+    font-size: 1.0625rem;
+    font-family: inherit;
+    color: inherit;
+    background: var(--card);
+    border: 1px solid #d1d5db;
+    border-radius: .5rem;
+  }
+  input[type="number"]:focus {
+    outline: none;
+    border-color: #60a5fa;
+    box-shadow: 0 0 0 3px rgba(96,165,250,.35);
+  }
+  .unit { font-size: .8125rem; color: var(--muted); white-space: nowrap; }
+
+  button {
+    width: 100%;
+    padding: .95rem;
+    font-family: inherit;
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--brand);
+    border: none;
+    border-radius: .75rem;
+    cursor: pointer;
+  }
+  button:hover { background: #1e40af; }
+  button:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+
+  .verdict { border-radius: .75rem; border: 2px solid; padding: 1.25rem; text-align: center; margin-bottom: 1rem; }
+  .verdict p { margin: 0; font-size: .8125rem; color: var(--muted); }
+  .verdict strong { display: block; font-size: 1.75rem; margin-top: .15rem; }
+  .verdict small { display: block; font-size: .8125rem; margin-top: .5rem; line-height: 1.7; }
+  .v-good { background: var(--good-bg); border-color: var(--good-line); }
+  .v-good strong, .v-good small { color: var(--good); }
+  .v-warn { background: var(--warn-bg); border-color: var(--warn-line); }
+  .v-warn strong, .v-warn small { color: var(--warn); }
+  .v-bad { background: var(--bad-bg); border-color: var(--bad-line); }
+  .v-bad strong, .v-bad small { color: var(--bad); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+  .stat {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: .75rem; padding: .9rem; text-align: center;
+  }
+  .stat .k { font-size: .75rem; color: var(--muted); margin-bottom: .2rem; }
+  .stat .v { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stat .s { font-size: .6875rem; color: var(--faint); }
+  .stat.wide { grid-column: 1 / -1; }
+
+  .breakdown { font-size: .8125rem; color: var(--muted); }
+  .breakdown div { display: flex; justify-content: space-between; padding: .4rem 0; border-bottom: 1px dashed var(--line); }
+  .breakdown div:last-child { border-bottom: none; }
+  .breakdown span:last-child { font-variant-numeric: tabular-nums; color: var(--text); }
+
+  .copybtn {
+    background: var(--card); color: var(--brand);
+    border: 1px solid var(--line); font-size: .875rem; padding: .7rem;
+  }
+  .copybtn:hover { background: var(--brand-soft); }
+
+  h3 { font-size: .9375rem; margin: 1.5rem 0 .4rem; }
+  h3:first-child { margin-top: 0; }
+  .prose p { font-size: .875rem; color: var(--muted); margin: 0 0 .75rem; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--text); }
+
+  footer { text-align: center; font-size: .75rem; color: var(--faint); margin-top: 2rem; }
+  footer a { color: var(--muted); }
+
+  [hidden] { display: none !important; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --card: #191d22; --line: #2b3138;
+      --text: #e8eaed; --muted: #9aa3ab; --faint: #79828a;
+      --brand: #4f83e8; --brand-soft: #1a2536;
+      --good: #6ee7a8; --good-bg: #12251c; --good-line: #1f4634;
+      --warn: #f0c164; --warn-bg: #2a2313; --warn-line: #4d3f17;
+      --bad: #f28b82; --bad-bg: #2b1817; --bad-line: #542524;
+    }
+    input[type="number"] { border-color: #3a424a; }
+    button { color: #0d1117; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Excel作業の自動化コスト診断</h1>
+    <p>その手作業、年間いくら消えているか。回収期間まで30秒で計算します。</p>
+  </header>
+
+  <form id="form">
+    <div class="card">
+      <h2><span class="step">1</span>いまの作業</h2>
+
+      <div class="field">
+        <label for="freq">月に何回やっていますか
+          <span class="hint">週1回なら「4」、毎営業日なら「20」</span>
+        </label>
+        <div class="row">
+          <input type="number" id="freq" inputmode="numeric" min="0" placeholder="例: 4" value="4" />
+          <span class="unit">回 / 月</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="mins">1回あたり何分かかりますか
+          <span class="hint">体感ではなく、実際に測った時間を入れてください</span>
+        </label>
+        <div class="row">
+          <input type="number" id="mins" inputmode="numeric" min="0" placeholder="例: 180" value="180" />
+          <span class="unit">分 / 回</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="wage">担当者の時給
+          <span class="hint">社会保険料込みの目安。年収400万円なら約3,000円</span>
+        </label>
+        <div class="row">
+          <input type="number" id="wage" inputmode="numeric" min="0" placeholder="例: 3000" value="3000" />
+          <span class="unit">円 / 時</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">2</span>自動化したあと</h2>
+
+      <div class="field">
+        <label for="remain">作業はどのくらい残りますか
+          <span class="hint">ゼロにはなりません。確認や例外処理が必ず残ります</span>
+        </label>
+        <div class="row">
+          <input type="number" id="remain" inputmode="numeric" min="0" max="100" placeholder="例: 10" value="10" />
+          <span class="unit">%</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="initial">導入費用（初回）</label>
+        <div class="row">
+          <input type="number" id="initial" inputmode="numeric" min="0" placeholder="例: 120000" value="120000" />
+          <span class="unit">円</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="monthly">運用・保守費（毎月）
+          <span class="hint">浮く金額の25%を超えると、たいてい話が止まります</span>
+        </label>
+        <div class="row">
+          <input type="number" id="monthly" inputmode="numeric" min="0" placeholder="例: 8000" value="8000" />
+          <span class="unit">円 / 月</span>
+        </div>
+      </div>
+    </div>
+
+    <button type="submit">診断する</button>
+  </form>
+
+  <section id="result" hidden aria-live="polite">
+    <div class="verdict" id="verdict">
+      <p>判定</p>
+      <strong id="verdictLabel"></strong>
+      <small id="verdictNote"></small>
+    </div>
+
+    <div class="grid">
+      <div class="stat">
+        <div class="k">年間で消えている時間</div>
+        <div class="v" id="oHours"></div>
+        <div class="s">時間 / 年</div>
+      </div>
+      <div class="stat">
+        <div class="k">年間で消えている人件費</div>
+        <div class="v" id="oCost"></div>
+        <div class="s">円 / 年</div>
+      </div>
+      <div class="stat">
+        <div class="k">回収期間</div>
+        <div class="v" id="oPayback"></div>
+        <div class="s">目安</div>
+      </div>
+      <div class="stat">
+        <div class="k">3年間の収支</div>
+        <div class="v" id="oThree"></div>
+        <div class="s">円</div>
+      </div>
+      <div class="stat wide">
+        <div class="k">自動化で浮く金額（運用費を引いた後）</div>
+        <div class="v" id="oNet"></div>
+        <div class="s">円 / 年</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:.9375rem;margin-bottom:.75rem;">計算の内訳</h2>
+      <div class="breakdown" id="breakdown"></div>
+    </div>
+
+    <button type="button" class="copybtn" id="copy">この結果を文章でコピーする</button>
+  </section>
+
+  <div class="card prose">
+    <h3>なぜ「回収期間6ヶ月」が目安なのか</h3>
+    <p>社内で予算を通すとき、<strong>半年で元が取れる案件は説明がほぼ不要</strong>です。1年を超えると「来期に回そう」という判断になりやすく、話が止まります。逆に3ヶ月を切るほど安い見積もりは、品質を疑われることがあります。</p>
+
+    <h3>時給3,000円の根拠</h3>
+    <p>年収400万円の社員でも、会社が負担しているのは給与だけではありません。社会保険料の会社負担分、賞与、諸経費を含めると、実際のコストは年収の1.3〜1.5倍になります。年間2,000時間で割ると、時給換算でおよそ3,000円です。<strong>「うちのパートさんは時給1,200円だから」で計算すると、効果を2倍以上小さく見積もることになります。</strong></p>
+
+    <h3>月額はいくらまで載せられるか</h3>
+    <p>目安は<strong>「浮く金額の25%以内」</strong>です。導入費用に対する割合ではありません。月に3万円しか浮かない作業に月2万円の保守をつけると、実質的な効果が1万円まで縮み、まず決裁が通りません。</p>
+    <p>逆に言うと、<strong>月2万円の保守を成立させるには、月30時間規模（週8時間）の作業が対象である必要があります。</strong>金額を上げたいなら値上げではなく、対象業務を大きくするか、複数の作業をまとめて引き受けるほうが早いです。</p>
+
+    <h3>作業はゼロになりません</h3>
+    <p>自動化しても、結果の確認と例外処理は残ります。ここを0%で計算した提案書は、導入後に「話が違う」となる原因です。<strong>最初から10〜20%残る前提で計算しておくほうが、結果的に信用されます。</strong></p>
+
+    <h3>よくある質問</h3>
+    <p><strong>Q. 作業時間がはっきり分かりません。</strong><br />
+    A. 次に発生したとき、ストップウォッチで実測してください。体感時間は実際より短めに見積もられる傾向があり、それだと効果が小さく出て判断を誤ります。</p>
+    <p><strong>Q. 複数人でやっている作業はどう入れますか。</strong><br />
+    A. 全員の合計時間を「1回あたりの時間」に入れてください。2人で1時間なら120分です。</p>
+    <p><strong>Q. 判定が「見送り」でした。</strong><br />
+    A. その作業は自動化に向いていません。頻度が低いか、時間が短すぎます。もっと頻繁で時間のかかる作業を探してください。<strong>金額が出ない作業を無理に自動化しても、保守の手間だけが残ります。</strong></p>
+  </div>
+
+  <footer>
+    <p>この診断は簡易的な目安です。実際の判断では、担当者の負担軽減やミスの削減といった金額換算しにくい効果も考慮してください。</p>
+    <p><a href="./index.html">副業固定費診断はこちら</a></p>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var num = function (id) { return Number($(id).value) || 0; };
+  var yen = function (n) { return Math.round(n).toLocaleString('ja-JP'); };
+
+  var last = null;
+
+  $('form').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    var freq = num('freq');
+    var mins = num('mins');
+    var wage = num('wage');
+    var remain = Math.min(Math.max(num('remain'), 0), 100) / 100;
+    var initial = num('initial');
+    var monthly = num('monthly');
+
+    if (freq <= 0 || mins <= 0 || wage <= 0) {
+      alert('月の回数・1回あたりの時間・時給は、0より大きい値を入れてください。');
+      return;
+    }
+
+    var hoursYear = freq * mins * 12 / 60;
+    var costYear = hoursYear * wage;
+    var savedYear = costYear * (1 - remain);   // 自動化で浮く人件費
+    var runYear = monthly * 12;                // 年間の運用費
+    var netYear = savedYear - runYear;         // 差し引き
+    var netMonth = netYear / 12;
+
+    var payback = netMonth > 0 ? initial / netMonth : Infinity;
+    var three = netYear * 3 - initial;
+    var feeRatio = savedYear > 0 ? runYear / savedYear : Infinity;
+
+    // ── 判定 ──────────────────────────────────
+    var cls, label, note;
+    if (netMonth <= 0) {
+      cls = 'v-bad'; label = '見送り';
+      note = '運用費が削減額を上回っています。この条件では赤字が続きます。';
+    } else if (savedYear < 100000) {
+      cls = 'v-bad'; label = '効果が小さい';
+      note = '年間の削減額が10万円未満です。自動化しても保守の手間だけが残る可能性があります。';
+    } else if (payback <= 6) {
+      cls = 'v-good'; label = 'すぐ着手';
+      note = '半年以内に元が取れます。社内で説明しやすい水準です。';
+    } else if (payback <= 12) {
+      cls = 'v-warn'; label = '検討の価値あり';
+      note = '1年以内に回収できます。費用を抑えるか、対象を広げると通しやすくなります。';
+    } else {
+      cls = 'v-bad'; label = '見送り';
+      note = '回収に1年以上かかります。もっと頻度の高い作業を対象にしてください。';
+    }
+
+    // 月額が重すぎる場合は、判定に関わらず警告する
+    if (netMonth > 0 && feeRatio > 0.25) {
+      note += '（月額が浮く金額の' + Math.round(feeRatio * 100) +
+              '%を占めています。25%以内に収めないと、たいてい話が止まります）';
+    }
+
+    $('verdict').className = 'verdict ' + cls;
+    $('verdictLabel').textContent = label;
+    $('verdictNote').textContent = note;
+
+    $('oHours').textContent = Math.round(hoursYear).toLocaleString('ja-JP');
+    $('oCost').textContent = yen(costYear);
+    $('oPayback').textContent = payback === Infinity ? '回収不能' : '約' + Math.ceil(payback) + 'ヶ月';
+    $('oThree').textContent = (three >= 0 ? '+' : '−') + yen(Math.abs(three));
+    $('oNet').textContent = (netYear >= 0 ? '' : '−') + yen(Math.abs(netYear));
+
+    $('breakdown').innerHTML = [
+      ['作業時間', freq + '回 × ' + mins + '分 × 12ヶ月 = ' + Math.round(hoursYear).toLocaleString('ja-JP') + '時間'],
+      ['人件費に換算', Math.round(hoursYear).toLocaleString('ja-JP') + '時間 × ' + yen(wage) + '円 = ' + yen(costYear) + '円'],
+      ['自動化後に残る分', '−' + yen(costYear * remain) + '円（' + Math.round(remain * 100) + '%）'],
+      ['年間の運用費', '−' + yen(runYear) + '円（浮く金額の' + Math.round(feeRatio * 100) + '%）'],
+      ['差し引き', yen(netYear) + '円 / 年'],
+      ['導入費用', yen(initial) + '円（初回のみ）']
+    ].map(function (r) {
+      return '<div><span>' + r[0] + '</span><span>' + r[1] + '</span></div>';
+    }).join('');
+
+    last = {
+      hoursYear: hoursYear, costYear: costYear, netYear: netYear,
+      payback: payback, three: three, initial: initial, monthly: monthly
+    };
+
+    $('result').hidden = false;
+    $('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  $('copy').addEventListener('click', function () {
+    if (!last) return;
+    var text =
+      'この作業には、年間で約' + Math.round(last.hoursYear).toLocaleString('ja-JP') + '時間、' +
+      '人件費に換算して約' + yen(last.costYear) + '円かかっています。\n' +
+      '自動化すると、運用費を差し引いても年間約' + yen(last.netYear) + '円が浮きます。\n' +
+      '導入費用' + yen(last.initial) + '円は、' +
+      (last.payback === Infinity ? '回収できません。' : '約' + Math.ceil(last.payback) + 'ヶ月で回収できる計算です。') + '\n' +
+      '3年間で見ると、差し引き約' + (last.three >= 0 ? '' : 'マイナス') + yen(Math.abs(last.three)) + '円です。';
+
+    var done = function () {
+      var b = document.getElementById('copy');
+      var orig = b.textContent;
+      b.textContent = 'コピーしました';
+      setTimeout(function () { b.textContent = orig; }, 1600);
+    };
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(done, function () { window.prompt('コピーしてください', text); });
+    } else {
+      window.prompt('コピーしてください', text);
+    }
+  });
+})();
+</script>
+</body>
+</html>
